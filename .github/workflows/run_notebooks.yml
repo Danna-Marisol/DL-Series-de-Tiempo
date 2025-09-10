@@ -1,59 +1,75 @@
-name: Stock Prediction Pipeline
+name: ML Pipeline - Script Execution
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, master]
   pull_request:
-    branches:
-      - main
+    branches: [main, master]
 
 jobs:
-  build-and-run:
+  execute-scripts:
+    name: Execute Python Scripts in Sequence
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # Aumentado para MLflow y procesamiento de datos
 
     steps:
-      # Clonar repositorio
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    # Paso 1: Checkout del código
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      # Configurar Python
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+    # Paso 2: Configurar Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      # Actualizar pip e instalar dependencias
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+    # Paso 3: Instalar dependencias completas
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pandas scikit-learn matplotlib seaborn tensorflow mlflow gdown pyngrok joblib optuna tqdm python-dotenv
+        sudo apt-get update && sudo apt-get install -y unzip
 
-      # Verificar que los archivos existen
-      - name: List repository files
-        run: ls -R
+    # Paso 4: Crear estructura de directorios
+    - name: Create Directories
+      run: |
+        mkdir -p data
+        mkdir -p mlruns
+        mkdir -p output
 
-      # Análisis exploratorio
-      - name: Run Exploratory Analysis
-        run: python scripts/Analisis_exploratorio.py
+    # Paso 5: Ejecutar scripts en orden con manejo de errores
+    - name: Run Exploratory Analysis
+      run: |
+        echo "Ejecutando Analisis_exploratorio.py..."
+        python scripts/Analisis_exploratorio.py || exit 1
 
-      # Preprocesamiento
-      - name: Run Preprocessing
-        run: python scripts/Preprocesamiento.py
+    - name: Run Preprocessing
+      run: |
+        echo "Ejecutando Preprocesamiento.py..."
+        python scripts/Preprocesamiento.py || exit 1
 
-      # Entrenamiento y validación
-      - name: Train and Validate Models
-        run: python scripts/Entrenamiento_validacion.py
+    - name: Run Feature Selection and Training
+      run: |
+        echo "Ejecutando Entrenamiento_validacion.py..."
+        python scripts/Entrenamiento_validacion.py || exit 1
 
-      # Evaluación final y exportación
-      - name: Run Evaluation and Export
-        run: python scripts/Evaluacion_exportacion.py
+    - name: Run Model Evaluation and Export
+      run: |
+        echo "Ejecutando Evaluacion_exportacion.py..."
+        python scripts/Evaluacion_exportacion.py || exit 1
+        # Iniciar MLflow UI en background (solo para debugging)
+        nohup mlflow ui --port 5000 --host 0.0.0.0 &
 
-      # Subir artefactos generados (CSV y PNG)
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ml-results
-          path: |
-            *.csv
-            *.png
+    # Paso 6: Subir resultados como artefactos
+    - name: Upload Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: ml-pipeline-results
+        path: |
+          *.pkl
+          *.csv
+          mlruns/
+          output/
+          data/processed_*
+        retention-days: 2
