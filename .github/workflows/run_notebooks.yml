@@ -1,0 +1,59 @@
+name: Stock Prediction Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clonar repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Configurar Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # Actualizar pip e instalar dependencias
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Verificar que los archivos existen
+      - name: List repository files
+        run: ls -R
+
+      # Análisis exploratorio
+      - name: Run Exploratory Analysis
+        run: python scripts/Analisis_exploratorio.py
+
+      # Preprocesamiento
+      - name: Run Preprocessing
+        run: python scripts/Preprocesamiento.py
+
+      # Entrenamiento y validación
+      - name: Train and Validate Models
+        run: python scripts/Entrenamiento_validacion.py
+
+      # Evaluación final y exportación
+      - name: Run Evaluation and Export
+        run: python scripts/Evaluacion_exportacion.py
+
+      # Subir artefactos generados (CSV y PNG)
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-results
+          path: |
+            *.csv
+            *.png
